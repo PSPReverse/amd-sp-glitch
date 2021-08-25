@@ -1,0 +1,562 @@
+## set/reset/print ###################################################
+
+Command for the control of parameters.
+
+## Commands
+
+  set <module> <param> <value>
+                    Sets a parameter to a value.
+
+  reset [<module> [<param>]]
+                    Resets parameters to their inital value. A
+                    single parameter to be reset can either be
+                    specified, all parameters of a module can be
+                    reset or all parameters of all modules.
+
+  print [<module> [<param>]]
+                    Prints the current values of parameters.
+                    If no paramter is given, all parameter of
+                    the module are printed and if no module is
+                    given, all parameters are printed.
+
+## Module: attack ####################################################
+
+Module for carrying out an attack on a AMD ZenX CPU.
+The glitch module will be used to carry out the actual attack.
+
+## Commands
+
+  <empty str>       Arms the attack, it will be performed when the next restart is detected.
+
+## Paramters
+
+  waits             The specified amount of chip-select low-pulses will be waited for,
+                    before the glitch will be triggered.
+
+## Module: glitch ####################################################
+
+A glitch can either be triggered by an attack, by a chip-select
+pulse (active-low) or manually. After being triggered we firstly
+wait delay - duration many busy loop cycles. Then repeats many
+times the following steps will be executed:
+  - sets the configured vid (for the configured voltage)
+  - wait duration many busy loop cycles
+  - sets the configured default vid (in cmd_soc or cmd_core)
+  - wait cooldown many busy loop cycles
+Then the result detection starts:
+  - wait for a low chip-select pulse
+     -> if a pulse at most cs_timeout long is detected continue
+     -> for a longer pulse we are in an error state
+     -> with no pulse after ping_wait many busy loop cycles,
+        the target is considered broken
+  - wait for another chip-select pulse
+     -> if detected the glitch is considered to be successful
+     -> with no pulse after success_wait many busy loop cycles,
+        the target is considered to be restarting
+
+## Commands
+
+  <empty str>       Manually triggers a glitch.
+
+  arm               Arms a glitch to be triggered on the next chip-select pulse.
+
+## Paramters
+
+  vid               The voltage level to set. Each vid step corresponds to a
+                    -0.00625 Volt step. A vid of 0 corresponds to a voltage of
+                    1.55 Volts and vids above 248 completely turn of the
+                    voltages.
+                    Note: This value might be protected from being set too high.
+
+  set_soc           Wether the VSoc voltage will be set by this command.
+                    Can be "true" or "false", which is the default.
+
+  set_core          Wether the VCore voltage will be set by this command.
+                    Can be "true" or "false", which is the default.
+
+  delay             The time to wait before trying to glitch the target (the
+                    duration of the glitch will be subtracted beforehand).
+
+  duration          The time for which the configured vid will be active.
+
+  cooldown          The time to wait before executing another glitch or starting
+                    the chip-select detection.
+
+  repeats           How many glitches should be executed.
+
+  cs_timeout        Maximum length for a chip-select pulse.
+
+  ping_wait         How long to wait for a chip-select pulse after the cooldown.
+
+  success_wait      How long to wait for the second chip-select pulse.
+
+## Module: restart ###################################################
+
+This module controls the restart detecting and triggering.
+
+## Commands
+
+  <empty str>       Manually triggers the restart routine. Note that this doesn't
+                    restart the machine, but performs the packet injections as if
+                    a restart was detected.
+
+  reset             Restarts the device under test by pulling the reset line low.
+
+## Paramters
+
+  detect            Whether restart detection is enabled.
+
+  disable_telemetry
+                    Whether telemetry will be disabled on restart detection.
+
+  wait_on           How many busy loop cycles does the SVD line needs to be high
+                    for the restart detection to consider the device under test
+                    turned on, when it is turned off.
+
+  wait_off          How many busy loop cycles does the SVD line needs to be low
+                    for the restart detection to move the device under test
+                    from the on state to the off state.
+
+  delay             After a restart was detected, this parameter specified how
+                    many busy loop cycles will be waited before the default vids
+                    are set (and the telemetry is turned off).
+
+  reset_len         The reset line will be pulled low for this many busy loop
+                    cycles when the "restart reset" command is issued.
+
+## Module: cmd #######################################################
+
+The amd svi2 cmd/packet that is sent with the "inject" command.
+
+## Paramters
+
+  set_core          Wether the VCore voltage will be set by this command.
+                    Can be "true" or "false", which is the default.
+
+  set_soc           Wether the VSoc voltage will be set by this command.
+                    Can be "true" or "false", which is the default.
+
+  vid               The voltage level to set. Each vid step corresponds to a
+                    -0.00625 Volt step. A vid of 0 corresponds to a voltage of
+                    1.55 Volts and vids above 248 completely turn of the
+                    voltages.
+                    Note: This value might be protected from being set too high.
+
+  power             Controls the low-power states. Possible values are:
+                    low, mid, full_alt and full.
+                    In full and full_alt all mosfets drive the bus, in
+                    mid only a single phase is used and in low a diode
+                    emulation mode is entered.
+
+  offset_trim       Gives finer control over the voltages.
+                    Possible value are: off, no_change, +25mV and -25mV.
+
+  set_telemetry     Controls the telemetry function of the voltage regulator.
+                    The soc and core bits are used in conjunction with this bit
+                    to control what data is sent:
+                      tele.  core  soc
+                        1      0     0    voltages
+                        1      0     1    voltages and currents
+                        1      1     0    nothing
+                        1      1     0    reserved
+
+  load_line         Controls the slope of the load line. When the cpu draws
+                    higher currents the supply voltages drop, this is the
+                    slope of the load line. The units are % mOhm and the
+                    Possible values are: off, no_change, -40%, -20%, +20%,
+                    +40%, +60% and +80%.
+
+## Module: soc_cmd ###################################################
+
+An amd svi2 cmd/packet whose purpose it is to set the "normal" VSoc state
+of the voltage regulator. It is sent when a restart has been detected or
+after a glitch with the "glitch" command.
+If "restart disable-telemetry" is enabled, this packet will also be used
+to disable the voltage regulators telemetry functionality.
+
+## Paramters
+
+  vid               The voltage level to set. Each vid step corresponds to a
+                    -0.00625 Volt step. A vid of 0 corresponds to a voltage of
+                    1.55 Volts and vids above 248 completely turn of the
+                    voltages.
+                    Note: This value might be protected from being set too high.
+
+  power             Controls the low-power states. Possible values are:
+                    low, mid, full_alt and full.
+                    In full and full_alt all mosfets drive the bus, in
+                    mid only a single phase is used and in low a diode
+                    emulation mode is entered.
+
+  offset_trim       Gives finer control over the voltages.
+                    Possible value are: off, no_change, +25mV and -25mV.
+
+  load_line         Controls the slope of the load line. When the cpu draws
+                    higher currents the supply voltages drop, this is the
+                    slope of the load line. The units are % mOhm and the
+                    Possible values are: off, no_change, -40%, -20%, +20%,
+                    +40%, +60% and +80%.
+
+## Module: core_cmd ##################################################
+
+An amd svi2 cmd/packet whose purpose it is to set the "normal" VCore
+state of the voltage regulator. It is sent when a restart has been detected
+or after a glitch with the "glitch" command.
+
+## Paramters
+
+  vid               The voltage level to set. Each vid step corresponds to a
+                    -0.00625 Volt step. A vid of 0 corresponds to a voltage of
+                    1.55 Volts and vids above 248 completely turn of the
+                    voltages.
+                    Note: This value might be protected from being set too high.
+
+  power             Controls the low-power states. Possible values are:
+                    low, mid, full_alt and full.
+                    In full and full_alt all mosfets drive the bus, in
+                    mid only a single phase is used and in low a diode
+                    emulation mode is entered.
+
+  offset_trim       Gives finer control over the voltages.
+                    Possible value are: off, no_change, +25mV and -25mV.
+
+  load_line         Controls the slope of the load line. When the cpu draws
+                    higher currents the supply voltages drop, this is the
+                    slope of the load line. The units are % mOhm and the
+                    Possible values are: off, no_change, -40%, -20%, +20%,
+                    +40%, +60% and +80%.
+
+## Module: hw ########################################################
+
+Controls which hardware components are used and how.
+
+## Paramters
+
+  config            Allows switching between the two configurations (1 and 2).
+                                      cfg 1   cfg 2
+                      ===============================
+                        trigger pin |     0 |     9 |
+                             cs pin |     1 |    10 |
+                          reset pin |     2 |    11 |
+                         svc in pin |    20 |    15 |
+                         svd in pin |    21 |    14 |
+                        svc out pin |    19 |    16 |
+                        svd out pin |    18 |    17 |
+
+  trigger_restart   Whether the trigger pin pulses on a restart of the device
+                    under test.
+
+  trigger_glitch_broken
+                    Whether the trigger pin pulses on a glitch that breaks the
+                    device under test.
+
+  trigger_glitch_success
+                    Whether the trigger pin pulses on a glitch that succeeds.
+
+  trigger_glitch_running
+                    Whether the trigger pin pulses on a glitch where the system
+                    continues running.
+
+  trigger_glitch    Whether the trigger pin pulses on glitch activity.
+
+  trigger_attack    Whether the trigger pin pulses on attack activity.
+
+  trigger_cli       Whether the trigger pin pulses on cli activity (for debugging).
+
+## Module: ping ######################################################
+
+A small utility to check whether the
+device is still responding.
+
+## Commands
+
+  <empty str>       Pongs back!
+
+## Paramters
+
+  repeats           How often to pong back.
+
+
+>
+
+> help
+
+## set/reset/print ###################################################
+
+Command for the control of parameters.
+
+## Commands
+
+  set <module> <param> <value>
+                    Sets a parameter to a value.
+
+  reset [<module> [<param>]]
+                    Resets parameters to their inital value. A
+                    single parameter to be reset can either be
+                    specified, all parameters of a module can be
+                    reset or all parameters of all modules.
+
+  print [<module> [<param>]]
+                    Prints the current values of parameters.
+                    If no paramter is given, all parameter of
+                    the module are printed and if no module is
+                    given, all parameters are printed.
+
+## Module: attack ####################################################
+
+Module for carrying out an attack on a AMD ZenX CPU.
+The glitch module will be used to carry out the actual attack.
+
+## Commands
+
+  <empty str>       Arms the attack, it will be performed when the next restart is detected.
+
+## Paramters
+
+  waits             The specified amount of chip-select low-pulses will be waited for,
+                    before the glitch will be triggered.
+
+## Module: glitch ####################################################
+
+A glitch can either be triggered by an attack, by a chip-select
+pulse (active-low) or manually. After being triggered we firstly
+wait delay - duration many busy loop cycles. Then repeats many
+times the following steps will be executed:
+  - sets the configured vid (for the configured voltage)
+  - wait duration many busy loop cycles
+  - sets the configured default vid (in cmd_soc or cmd_core)
+  - wait cooldown many busy loop cycles
+Then the result detection starts:
+  - wait for a low chip-select pulse
+     -> if a pulse at most cs_timeout long is detected continue
+     -> for a longer pulse we are in an error state
+     -> with no pulse after ping_wait many busy loop cycles,
+        the target is considered broken
+  - wait for another chip-select pulse
+     -> if detected the glitch is considered to be successful
+     -> with no pulse after success_wait many busy loop cycles,
+        the target is considered to be restarting
+
+## Commands
+
+  <empty str>       Manually triggers a glitch.
+
+  arm               Arms a glitch to be triggered on the next chip-select pulse.
+
+## Paramters
+
+  vid               The voltage level to set. Each vid step corresponds to a
+                    -0.00625 Volt step. A vid of 0 corresponds to a voltage of
+                    1.55 Volts and vids above 248 completely turn of the
+                    voltages.
+                    Note: This value might be protected from being set too high.
+
+  set_soc           Wether the VSoc voltage will be set by this command.
+                    Can be "true" or "false", which is the default.
+
+  set_core          Wether the VCore voltage will be set by this command.
+                    Can be "true" or "false", which is the default.
+
+  delay             The time to wait before trying to glitch the target (the
+                    duration of the glitch will be subtracted beforehand).
+
+  duration          The time for which the configured vid will be active.
+
+  cooldown          The time to wait before executing another glitch or starting
+                    the chip-select detection.
+
+  repeats           How many glitches should be executed.
+
+  cs_timeout        Maximum length for a chip-select pulse.
+
+  ping_wait         How long to wait for a chip-select pulse after the cooldown.
+
+  success_wait      How long to wait for the second chip-select pulse.
+
+## Module: restart ###################################################
+
+This module controls the restart detecting and triggering.
+
+## Commands
+
+  <empty str>       Manually triggers the restart routine. Note that this doesn't
+                    restart the machine, but performs the packet injections as if
+                    a restart was detected.
+
+  reset             Restarts the device under test by pulling the reset line low.
+
+## Paramters
+
+  detect            Whether restart detection is enabled.
+
+  disable_telemetry
+                    Whether telemetry will be disabled on restart detection.
+
+  wait_on           How many busy loop cycles does the SVD line needs to be high
+                    for the restart detection to consider the device under test
+                    turned on, when it is turned off.
+
+  wait_off          How many busy loop cycles does the SVD line needs to be low
+                    for the restart detection to move the device under test
+                    from the on state to the off state.
+
+  delay             After a restart was detected, this parameter specified how
+                    many busy loop cycles will be waited before the default vids
+                    are set (and the telemetry is turned off).
+
+  reset_len         The reset line will be pulled low for this many busy loop
+                    cycles when the "restart reset" command is issued.
+
+## Module: cmd #######################################################
+
+The amd svi2 cmd/packet that is sent with the "inject" command.
+
+## Paramters
+
+  set_core          Wether the VCore voltage will be set by this command.
+                    Can be "true" or "false", which is the default.
+
+  set_soc           Wether the VSoc voltage will be set by this command.
+                    Can be "true" or "false", which is the default.
+
+  vid               The voltage level to set. Each vid step corresponds to a
+                    -0.00625 Volt step. A vid of 0 corresponds to a voltage of
+                    1.55 Volts and vids above 248 completely turn of the
+                    voltages.
+                    Note: This value might be protected from being set too high.
+
+  power             Controls the low-power states. Possible values are:
+                    low, mid, full_alt and full.
+                    In full and full_alt all mosfets drive the bus, in
+                    mid only a single phase is used and in low a diode
+                    emulation mode is entered.
+
+  offset_trim       Gives finer control over the voltages.
+                    Possible value are: off, no_change, +25mV and -25mV.
+
+  set_telemetry     Controls the telemetry function of the voltage regulator.
+                    The soc and core bits are used in conjunction with this bit
+                    to control what data is sent:
+                      tele.  core  soc
+                        1      0     0    voltages
+                        1      0     1    voltages and currents
+                        1      1     0    nothing
+                        1      1     0    reserved
+
+  load_line         Controls the slope of the load line. When the cpu draws
+                    higher currents the supply voltages drop, this is the
+                    slope of the load line. The units are % mOhm and the
+                    Possible values are: off, no_change, -40%, -20%, +20%,
+                    +40%, +60% and +80%.
+
+## Module: soc_cmd ###################################################
+
+An amd svi2 cmd/packet whose purpose it is to set the "normal" VSoc state
+of the voltage regulator. It is sent when a restart has been detected or
+after a glitch with the "glitch" command.
+If "restart disable-telemetry" is enabled, this packet will also be used
+to disable the voltage regulators telemetry functionality.
+
+## Paramters
+
+  vid               The voltage level to set. Each vid step corresponds to a
+                    -0.00625 Volt step. A vid of 0 corresponds to a voltage of
+                    1.55 Volts and vids above 248 completely turn of the
+                    voltages.
+                    Note: This value might be protected from being set too high.
+
+  power             Controls the low-power states. Possible values are:
+                    low, mid, full_alt and full.
+                    In full and full_alt all mosfets drive the bus, in
+                    mid only a single phase is used and in low a diode
+                    emulation mode is entered.
+
+  offset_trim       Gives finer control over the voltages.
+                    Possible value are: off, no_change, +25mV and -25mV.
+
+  load_line         Controls the slope of the load line. When the cpu draws
+                    higher currents the supply voltages drop, this is the
+                    slope of the load line. The units are % mOhm and the
+                    Possible values are: off, no_change, -40%, -20%, +20%,
+                    +40%, +60% and +80%.
+
+## Module: core_cmd ##################################################
+
+An amd svi2 cmd/packet whose purpose it is to set the "normal" VCore
+state of the voltage regulator. It is sent when a restart has been detected
+or after a glitch with the "glitch" command.
+
+## Paramters
+
+  vid               The voltage level to set. Each vid step corresponds to a
+                    -0.00625 Volt step. A vid of 0 corresponds to a voltage of
+                    1.55 Volts and vids above 248 completely turn of the
+                    voltages.
+                    Note: This value might be protected from being set too high.
+
+  power             Controls the low-power states. Possible values are:
+                    low, mid, full_alt and full.
+                    In full and full_alt all mosfets drive the bus, in
+                    mid only a single phase is used and in low a diode
+                    emulation mode is entered.
+
+  offset_trim       Gives finer control over the voltages.
+                    Possible value are: off, no_change, +25mV and -25mV.
+
+  load_line         Controls the slope of the load line. When the cpu draws
+                    higher currents the supply voltages drop, this is the
+                    slope of the load line. The units are % mOhm and the
+                    Possible values are: off, no_change, -40%, -20%, +20%,
+                    +40%, +60% and +80%.
+
+## Module: hw ########################################################
+
+Controls which hardware components are used and how.
+
+## Paramters
+
+  config            Allows switching between the two configurations (1 and 2).
+                                      cfg 1   cfg 2
+                      ===============================
+                        trigger pin |     0 |     9 |
+                             cs pin |     1 |    10 |
+                          reset pin |     2 |    11 |
+                         svc in pin |    20 |    15 |
+                         svd in pin |    21 |    14 |
+                        svc out pin |    19 |    16 |
+                        svd out pin |    18 |    17 |
+
+  trigger_restart   Whether the trigger pin pulses on a restart of the device
+                    under test.
+
+  trigger_glitch_broken
+                    Whether the trigger pin pulses on a glitch that breaks the
+                    device under test.
+
+  trigger_glitch_success
+                    Whether the trigger pin pulses on a glitch that succeeds.
+
+  trigger_glitch_running
+                    Whether the trigger pin pulses on a glitch where the system
+                    continues running.
+
+  trigger_glitch    Whether the trigger pin pulses on glitch activity.
+
+  trigger_attack    Whether the trigger pin pulses on attack activity.
+
+  trigger_cli       Whether the trigger pin pulses on cli activity (for debugging).
+
+## Module: ping ######################################################
+
+A small utility to check whether the
+device is still responding.
+
+## Commands
+
+  <empty str>       Pongs back!
+
+## Paramters
+
+  repeats           How often to pong back.
+
+
