@@ -149,6 +149,19 @@ NIST CURVE: P-384
 ```
 
 The **decrypt-ikek** payload loads the IKEK from a BIOS image, decrypts it and dumps it onto the SPI bus for exfiltration.
+To use it we extract an entry from a firmware image and confirm that it is encrypted (in this case using strings):
+```
+$ psptool -X -d <dir nr> -e <entry nr> -o /tmp/entry-enc <path-to-fw-image>
+$ strings -n 20 /tmp/entry
+$
+```
+Then we use the provided python script and extracted ikek to decrypt the entry and confirm our decryption:
+```
+$ ./decrypt_firmware_entry.py <ikek binary> /tmp/entry /tmp/entry-dec
+$ strings -n 100 /tmp/entry-dec 
+~}|{zyxwvvutsrqqponnmllkjjihhgffeddccbaa``__^^]]\\[[ZZYYXXWWVVUUUTTSSRRRQQPPPOOONNMMMLLLKKKJJJIIIHHHGGGGFFFEEEDDDDCCCCBBBBAAA
+$
+```
 
 ## Proof of Key extraction
 
