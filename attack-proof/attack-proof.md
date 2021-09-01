@@ -27,8 +27,8 @@ Verification OK!
 
 ## Signatures provided
 
-We used the keys to sign the title of our paper (the file [title.txt](attack-proof/title.txt)).
-The two CEK signatures can be found in [cek_signatures](attack-proof/cek_signatures) and the VCEK signatures we created in [vcek_signatures](attack-proof/vcek_signatures).
+We used the keys to sign the title of our paper (the file [title.txt](title.txt)).
+The two CEK signatures can be found in [cek_signatures](cek_signatures) and the VCEK signatures we created in [vcek_signatures](vcek_signatures).
 
 Since there are 2 to the power of 28 many VCEKs (we can only download certificates for SVNs between 0 and 0x7f), we didn't want to provide signatures for all of them.
 We provided the signatures for:
@@ -61,7 +61,7 @@ The VCEK depends on four *Security Version Numbers* (SVNs) and to obtain the VCE
 https://kdsintf.amd.com/vcek/v1/Milan/{id as hex string}?blSPL={Bootloader SVN}&teeSPL={Trusted-Exe.-Env. SVN}&snpSPL={SNP Firmware SVN}&ucodeSPL={µCode SVN}
 ```
 
-We provide the ASK/ARK, CEK and VCEK certificates that are needed for verification in the [attack-proof/certs](attack-proof/certs) folder.
+We provide the ASK/ARK, CEK and VCEK certificates that are needed for verification in the [certs](certs) folder.
 This is so that you can still check our signatures offline and in the case that AMD chooses to not provide the certificates for the compromised keys.
 
 Our verification script downloads the certificates from AMD if they are not present under `certs/ask_ark_(naples|milan).cert`.
@@ -102,6 +102,6 @@ $ openssl dgst -verify /tmp/vcek_xxxxxxxx.pem -sha384 -signature vcek_signatures
 Verified OK
 ```
 
-We have also provided a shell script that checks all of the provided signatures under [attack-proof/check_vceks_with_openssl.sh](attack-proof/check_vceks_with_openssl.sh).
+We have also provided a shell script that checks all of the provided signatures under [check_vceks_with_openssl.sh](check_vceks_with_openssl.sh).
 
 
